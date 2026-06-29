@@ -1,0 +1,143 @@
+# Central Pipeline Configuration
+
+# Collector Settings
+collectors:
+  active:
+    - greenhouse
+    - lever
+    - ashby
+    - linkedin
+    - indeed
+    - naukri
+    - company_site
+  batch_size: 50
+  rate_limit_delay_seconds: 1.0
+  max_retries: 3
+  backoff_factor: 2.0
+
+# Cleaning & Preprocessing Settings
+cleaner:
+  language_filter: ["en"] # Only keep English jobs
+
+# Deduplication Thresholds
+deduplication:
+  title_similarity_threshold: 0.85
+  company_similarity_threshold: 0.90
+  description_similarity_threshold: 0.85
+  use_semantic_similarity: false # Set to true to use sentence-transformers (requires torch)
+
+# Rule Engine Settings (Weighted Score)
+rule_engine:
+  min_score_threshold: 10
+  positive_keywords:
+    python: 5
+    pytorch: 10
+    tensorflow: 8
+    nlp: 10
+    llm: 15
+    rag: 15
+    langchain: 10
+    cuda: 12
+    computer vision: 10
+    machine learning: 10
+    deep learning: 10
+    mlops: 12
+    data science: 8
+    statistics: 5
+    sql: 3
+    aws: 3
+    fastapi: 5
+    langgraph: 10
+    llama: 10
+    transformers: 10
+    openai: 5
+    gemini: 5
+  negative_keywords:
+    sales: -100
+    marketing: -100
+    recruiter: -100
+    graphic designer: -100
+    finance: -20
+    content creator: -100
+    hr: -100
+    operations: -20
+    customer support: -100
+    trainer: -20
+    account manager: -100
+    sales executive: -100
+
+# Canonical Title Normalization Mappings
+canonical_titles:
+  ml_engineer:
+    - "machine learning engineer"
+    - "machine-learning engineer"
+    - "ml engineer"
+    - "ml software engineer"
+    - "mle"
+    - "machine learning specialist"
+  ai_engineer:
+    - "artificial intelligence engineer"
+    - "ai engineer"
+    - "ai developer"
+    - "generative ai engineer"
+    - "gen ai engineer"
+  llm_engineer:
+    - "large language model engineer"
+    - "llm engineer"
+    - "nlp engineer"
+    - "nlp scientist"
+    - "natural language processing engineer"
+  data_scientist:
+    - "data scientist"
+    - "applied scientist"
+    - "research scientist"
+    - "data science engineer"
+  data_engineer:
+    - "data engineer"
+    - "data pipeline engineer"
+    - "analytics engineer"
+  devops_engineer:
+    - "devops engineer"
+    - "site reliability engineer"
+    - "sre"
+    - "mlops engineer"
+    - "ml infrastructure engineer"
+    - "infrastructure engineer"
+  backend_engineer:
+    - "backend engineer"
+    - "backend developer"
+    - "software engineer, backend"
+    - "python engineer"
+    - "python developer"
+    - "systems engineer"
+  fullstack_engineer:
+    - "fullstack engineer"
+    - "full stack engineer"
+    - "full-stack developer"
+    - "software engineer"
+
+# Candidate Profile (Used by Relevance Scorer)
+candidate_profile:
+  preferred_titles:
+    - ml_engineer
+    - ai_engineer
+    - llm_engineer
+    - data_scientist
+  skills:
+    - python
+    - pytorch
+    - sql
+    - llm
+    - rag
+    - fastapi
+    - machine learning
+    - deep learning
+    - git
+  preferred_locations:
+    - "remote"
+    - "san francisco"
+    - "new york"
+    - "bengaluru"
+    - "london"
+  min_experience_years: 2
+  max_experience_years: 8
