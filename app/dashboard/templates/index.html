@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Antigravity AI | Job Discovery Platform</title>
+    <!-- Outfit & Inter Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #0b0c15;
+            --surface-color: rgba(18, 20, 38, 0.65);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --primary-glow: linear-gradient(135deg, #7f56d9 0%, #3f18b4 100%);
+            --accent-cyan: #06b6d4;
+            --accent-purple: #a855f7;
+            --accent-green: #10b981;
+            --accent-orange: #f97316;
+            --accent-red: #ef4444;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --glass-blur: blur(12px);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(127, 86, 217, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 80% 80%, rgba(6, 182, 212, 0.12) 0%, transparent 45%);
+            background-attachment: fixed;
+            min-height: 100vh;
+        }
+
+        h1, h2, h3, .brand-title {
+            font-family: 'Outfit', sans-serif;
+            letter-spacing: -0.02em;
+        }
+
+        /* Glassmorphic Navbar */
+        nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(11, 12, 21, 0.7);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1.2rem 2.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand-container {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
+
+        .brand-logo {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            color: white;
+            box-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
+        }
+
+        .brand-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, #fff, var(--text-muted));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-actions {
+            display: flex;
+            gap: 1rem;
+        }
+
+        /* Sleek Button Styles */
+        .btn {
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: 0.9rem;
+            padding: 0.7rem 1.4rem;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--primary-glow);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(127, 86, 217, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(127, 86, 217, 0.5);
+            filter: brightness(1.1);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        /* Container Layout */
+        .container {
+            max-width: 1400px;
+            margin: 2.5rem auto;
+            padding: 0 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2.5rem;
+        }
+
+        /* Stat Card Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .stat-card {
+            background: var(--surface-color);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.8rem;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: transparent;
+            transition: background 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(168, 85, 247, 0.25);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .stat-card.raw::before { background: var(--accent-cyan); }
+        .stat-card.cleaned::before { background: var(--accent-purple); }
+        .stat-card.rejected::before { background: var(--accent-red); }
+        .stat-card.accepted::before { background: var(--accent-green); }
+
+        .stat-label {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .stat-value {
+            font-size: 2.4rem;
+            font-weight: 800;
+            margin-top: 0.5rem;
+            font-family: 'Outfit', sans-serif;
+            background: linear-gradient(135deg, #fff 0%, #a1a1aa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Visualizations Section */
+        .viz-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 2rem;
+        }
+
+        .panel {
+            background: var(--surface-color);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2rem;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .panel-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+
+        /* Database Job Explorer Table */
+        .table-panel {
+            overflow: hidden;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            width: 100%;
+            margin-top: 1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+
+        th {
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        td {
+            padding: 1.2rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-main);
+        }
+
+        tr {
+            transition: background 0.2s ease;
+        }
+
+        tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        /* Badges & Tags styling */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-cyan { background: rgba(6, 182, 212, 0.15); color: var(--accent-cyan); border: 1px solid rgba(6, 182, 212, 0.3); }
+        .badge-purple { background: rgba(168, 85, 247, 0.15); color: var(--accent-purple); border: 1px solid rgba(168, 85, 247, 0.3); }
+        .badge-green { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); border: 1px solid rgba(16, 185, 129, 0.3); }
+        .badge-orange { background: rgba(249, 115, 22, 0.15); color: var(--accent-orange); border: 1px solid rgba(249, 115, 22, 0.3); }
+        .badge-red { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); border: 1px solid rgba(239, 68, 68, 0.3); }
+
+        /* Notification Toast */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: rgba(18, 20, 38, 0.95);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--accent-purple);
+            border-radius: 8px;
+            padding: 1rem 1.5rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            display: none;
+            animation: slideIn 0.3s ease forwards;
+            z-index: 200;
+            font-weight: 500;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(100px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Navbar -->
+    <nav>
+        <div class="brand-container">
+            <div class="brand-logo">A</div>
+            <span class="brand-title">Antigravity Ingestion Platform</span>
+        </div>
+        <div class="nav-actions">
+            <button class="btn btn-secondary" onclick="exportDatasets()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                Export ML Dataset
+            </button>
+            <button id="triggerBtn" class="btn btn-primary" onclick="triggerIngestion()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                Trigger Ingestion Run
+            </button>
+        </div>
+    </nav>
+
+    <!-- Content Area -->
+    <div class="container">
+
+        <!-- Stat Cards -->
+        <div class="stats-grid">
+            <div class="stat-card raw">
+                <div class="stat-label">Raw Jobs Ingested</div>
+                <div class="stat-value" id="stat-raw">0</div>
+            </div>
+            <div class="stat-card cleaned">
+                <div class="stat-label">Unique Cleaned</div>
+                <div class="stat-value" id="stat-cleaned">0</div>
+            </div>
+            <div class="stat-card rejected">
+                <div class="stat-label">Rules/AI Rejected</div>
+                <div class="stat-value" id="stat-rejected">0</div>
+            </div>
+            <div class="stat-card accepted">
+                <div class="stat-label">High Relevance Accepted</div>
+                <div class="stat-value" id="stat-accepted">0</div>
+            </div>
+        </div>
+
+        <!-- Visual Analytics Grid -->
+        <div class="viz-grid">
+            <!-- Funnel Chart -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">Pipeline Processing Funnel</h2>
+                </div>
+                <div class="chart-container">
+                    <canvas id="funnelChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Role Distribution Chart -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">Role Distribution</h2>
+                </div>
+                <div class="chart-container">
+                    <canvas id="roleChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Jobs Explorer Table -->
+        <div class="panel table-panel">
+            <div class="panel-header">
+                <h2 class="panel-title">Real-Time Job Processing Feed</h2>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Job Title</th>
+                            <th>Company</th>
+                            <th>Location</th>
+                            <th>Canonical Role</th>
+                            <th>Confidence</th>
+                            <th>Relevance</th>
+                            <th>Rank</th>
+                        </tr>
+                    </thead>
+                    <tbody id="jobs-table-body">
+                        <tr>
+                            <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 3rem;">No jobs ingested yet. Trigger a run to populate.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast">Operation completed successfully.</div>
+
+    <!-- Script logic -->
+    <script>
+        let funnelChart = null;
+        let roleChart = null;
+
+        function showToast(message) {
+            const toast = document.getElementById("toast");
+            toast.innerText = message;
+            toast.style.display = "block";
+            setTimeout(() => {
+                toast.style.display = "none";
+            }, 4000);
+        }
+
+        async function fetchStats() {
+            try {
+                const response = await fetch("/api/stats");
+                const data = await response.json();
+                
+                // Update Stat counters
+                document.getElementById("stat-raw").innerText = data.counts.raw;
+                document.getElementById("stat-cleaned").innerText = data.counts.cleaned;
+                document.getElementById("stat-rejected").innerText = data.counts.rejected;
+                document.getElementById("stat-accepted").innerText = data.counts.relevant;
+
+                // Update Funnel Chart
+                updateFunnelChart(data.funnel);
+
+                // Update Role Chart
+                updateRoleChart(data.distributions.roles);
+
+            } catch (err) {
+                console.error("Error fetching stats:", err);
+            }
+        }
+
+        async function fetchJobs() {
+            try {
+                const response = await fetch("/api/jobs");
+                const jobs = await response.json();
+                
+                const tbody = document.getElementById("jobs-table-body");
+                if (jobs.length === 0) return;
+
+                tbody.innerHTML = "";
+                jobs.forEach(job => {
+                    const row = document.createElement("tr");
+
+                    // Status style helper
+                    let rankBadge = "badge-red";
+                    if (job.rank === "excellent") rankBadge = "badge-green";
+                    else if (job.rank === "good") rankBadge = "badge-cyan";
+                    else if (job.rank === "moderate") rankBadge = "badge-orange";
+                    else if (job.rank === "weak") rankBadge = "badge-purple";
+
+                    row.innerHTML = `
+                        <td style="font-weight: 500;">${job.title}</td>
+                        <td style="color: var(--text-muted);">${job.company}</td>
+                        <td>${job.location}</td>
+                        <td><span class="badge badge-purple">${job.normalized_title}</span></td>
+                        <td style="font-family: monospace;">${(job.confidence * 100).toFixed(0)}%</td>
+                        <td style="font-family: monospace; font-weight: 600;">${job.relevance_score}/100</td>
+                        <td><span class="badge ${rankBadge}">${job.rank}</span></td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+            } catch (err) {
+                console.error("Error fetching jobs:", err);
+            }
+        }
+
+        function updateFunnelChart(funnel) {
+            const ctx = document.getElementById('funnelChart').getContext('2d');
+            
+            const data = [
+                funnel.scraped,
+                funnel.cleaned,
+                funnel.classified,
+                funnel.accepted
+            ];
+
+            if (funnelChart) {
+                funnelChart.data.datasets[0].data = data;
+                funnelChart.update();
+                return;
+            }
+
+            funnelChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['1. Collected Raw', '2. Unique Cleaned', '3. AI Classified', '4. High Relevance Match'],
+                    datasets: [{
+                        label: 'Job Listings Volume',
+                        data: data,
+                        backgroundColor: [
+                            'rgba(6, 182, 212, 0.45)',
+                            'rgba(168, 85, 247, 0.45)',
+                            'rgba(16, 185, 129, 0.45)',
+                            'rgba(249, 115, 22, 0.45)'
+                        ],
+                        borderColor: [
+                            '#06b6d4',
+                            '#a855f7',
+                            '#10b981',
+                            '#f97316'
+                        ],
+                        borderWidth: 1.5,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#9ca3af' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#9ca3af' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateRoleChart(roles) {
+            const ctx = document.getElementById('roleChart').getContext('2d');
+            const labels = Object.keys(roles);
+            const data = Object.values(roles);
+
+            if (roleChart) {
+                roleChart.data.labels = labels;
+                roleChart.data.datasets[0].data = data;
+                roleChart.update();
+                return;
+            }
+
+            roleChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: [
+                            'rgba(168, 85, 247, 0.55)',
+                            'rgba(6, 182, 212, 0.55)',
+                            'rgba(16, 185, 129, 0.55)',
+                            'rgba(249, 115, 22, 0.55)',
+                            'rgba(239, 68, 68, 0.55)',
+                            'rgba(251, 191, 36, 0.55)'
+                        ],
+                        borderColor: 'rgba(11, 12, 21, 0.8)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: { color: '#f3f4f6', boxWidth: 12 }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function triggerIngestion() {
+            const btn = document.getElementById("triggerBtn");
+            btn.disabled = true;
+            btn.innerHTML = `<span style="opacity: 0.6">Running Pipeline...</span>`;
+            
+            try {
+                const response = await fetch("/api/trigger", { method: "POST" });
+                const res = await response.json();
+                
+                if (response.status === 409) {
+                    showToast("Pipeline is already executing in the background.");
+                } else {
+                    showToast("Pipeline run initialized in background.");
+                }
+            } catch (err) {
+                showToast("Failed to initiate pipeline.");
+            }
+            
+            // Poll for completion periodically
+            let checkCount = 0;
+            const interval = setInterval(async () => {
+                await fetchStats();
+                await fetchJobs();
+                checkCount++;
+                if (checkCount > 8) {
+                    clearInterval(interval);
+                    btn.disabled = false;
+                    btn.innerHTML = `
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                        Trigger Ingestion Run
+                    `;
+                }
+            }, 3000);
+        }
+
+        async function exportDatasets() {
+            showToast("Generating ML dataset files...");
+            try {
+                const response = await fetch("/api/export", { method: "POST" });
+                const res = await response.json();
+                if (res.status === "success") {
+                    showToast("ML Datasets (Parquet/DuckDB/CSV/SQLite) exported to /exports!");
+                } else {
+                    showToast("Error generating exports: " + res.message);
+                }
+            } catch (err) {
+                showToast("Connection error compiling exports.");
+            }
+        }
+
+        // Init
+        window.addEventListener('load', () => {
+            fetchStats();
+            fetchJobs();
+            // Auto refresh stats
+            setInterval(() => {
+                fetchStats();
+                fetchJobs();
+            }, 6000);
+        });
+    </script>
+</body>
+</html>
