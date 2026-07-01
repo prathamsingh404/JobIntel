@@ -5,12 +5,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.database import (
+    User,
+    Company,
     RawJob,
     CleanedJob,
+    JobVersion,
     RejectedJob,
     AIClassifiedJob,
     RelevanceJob,
-    PipelineLog
+    PipelineLog,
+    Resume,
+    SkillKnowledgeGraph
 )
 from app.models.schemas import (
     RawJobCreate,
@@ -142,6 +147,7 @@ class JobRepository:
             await session.execute(select(func.count(AIClassifiedJob.id)))
         ).scalar_one() or 0
         relevant_count = (await session.execute(select(func.count(RelevanceJob.id)))).scalar_one() or 0
+        avg_relevance = (await session.execute(select(func.avg(RelevanceJob.relevance_score)))).scalar_one() or 0.0
 
         # Distribution of AI Labels (Canonical roles)
         ai_stmt = (
@@ -242,6 +248,7 @@ class JobRepository:
                 "classified": classified_count,
                 "relevant": relevant_count,
             },
+            "avg_relevance_score": float(avg_relevance),
             "distributions": {
                 "roles": ai_dist,
                 "relevance": rank_dist,
@@ -254,7 +261,13 @@ class JobRepository:
         }
 
     @staticmethod
-    async def get_recent_jobs(session: AsyncSession, limit: int = 50) -> List[Dict[str, Any]]:
+    async def get_recent_jobs(
+        session: AsyncSession,
+        limit: int = 50,
+        search: Optional[str] = None,
+        role: Optional[str] = None,
+        rank: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """Fetch processed jobs join query for exploration in dashboard."""
         stmt = (
             select(CleanedJob)
@@ -263,11 +276,26 @@ class JobRepository:
             .options(
                 selectinload(CleanedJob.ai_classified_job).selectinload(
                     AIClassifiedJob.relevance_job
-                )
+                ),
+                selectinload(CleanedJob.raw_job),
+                selectinload(CleanedJob.versions)
             )
-            .order_by(desc(CleanedJob.cleaned_date))
-            .limit(limit)
         )
+
+        if search:
+            search_pattern = f"%{search}%"
+            stmt = stmt.where(
+                (CleanedJob.title.ilike(search_pattern)) |
+                (CleanedJob.company.ilike(search_pattern)) |
+                (CleanedJob.clean_description.ilike(search_pattern)) |
+                (CleanedJob.skills.ilike(search_pattern))
+            )
+        if role:
+            stmt = stmt.where(CleanedJob.normalized_title == role)
+        if rank:
+            stmt = stmt.where(RelevanceJob.rank == rank)
+
+        stmt = stmt.order_by(desc(CleanedJob.cleaned_date)).limit(limit)
         results = (await session.execute(stmt)).scalars().all()
 
         jobs_list = []
@@ -280,13 +308,25 @@ class JobRepository:
                     "title": job.title,
                     "company": job.company,
                     "location": job.location,
-                    "scraped_date": job.cleaned_date.isoformat(),
-                    "normalized_title": job.normalized_title,
-                    "ai_label": class_info.ai_label if class_info else "N/A",
-                    "confidence": class_info.confidence if class_info else 0.0,
-                    "decision": class_info.decision if class_info else "reject",
-                    "relevance_score": rel_info.relevance_score if rel_info else 0,
+                    "description": job.clean_description,
+                    "url": job.raw_job.source_url if job.raw_job else "",
+                    "salary_min": None,
+                    "salary_max": None,
+                    "salary_currency": job.salary_currency,
+                    "workplace_type": job.workplace_type,
+                    "seniority": job.seniority,
+                    "skills": job.skills,
+                    "relevance_score": (rel_info.relevance_score / 100.0) if rel_info else 0.5,
+                    "relevance_explanation": rel_info.match_details if rel_info else (class_info.reason if class_info else ""),
                     "rank": rel_info.rank if rel_info else "reject",
+                    "collected_at": job.cleaned_date.isoformat(),
+                    "versions": [
+                        {
+                            "version_number": v.version_number,
+                            "updated_at": v.updated_at.isoformat(),
+                            "changes_payload": v.changes_payload
+                        } for v in job.versions
+                    ] if job.versions else []
                 }
             )
         return jobs_list
@@ -332,3 +372,85 @@ class JobRepository:
                 }
             )
         return records
+
+    @staticmethod
+    async def get_user_by_email(session: AsyncSession, email: str) -> Optional[User]:
+        """Fetch user profile by email address."""
+        stmt = select(User).where(User.email == email)
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def get_user_by_id(session: AsyncSession, user_id: str) -> Optional[User]:
+        """Fetch user profile by ID."""
+        stmt = select(User).where(User.id == user_id)
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def save_user(session: AsyncSession, email: str, hashed_password: str, role: str = "user") -> User:
+        """Create and save a new user."""
+        user = User(email=email, hashed_password=hashed_password, role=role)
+        session.add(user)
+        await session.flush()
+        return user
+
+    @staticmethod
+    async def get_company_by_name(session: AsyncSession, name: str) -> Optional[Company]:
+        """Fetch enriched company details by name."""
+        stmt = select(Company).where(Company.name == name)
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def save_company(session: AsyncSession, company_data: Dict[str, Any]) -> Company:
+        """Create and save an enriched company profile."""
+        company = Company(**company_data)
+        session.add(company)
+        await session.flush()
+        return company
+
+    @staticmethod
+    async def get_job_versions(session: AsyncSession, job_id: str) -> List[JobVersion]:
+        """Fetch the update version history of a specific job listing."""
+        stmt = select(JobVersion).where(JobVersion.job_id == job_id).order_by(JobVersion.version_number)
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+    @staticmethod
+    async def save_job_version(session: AsyncSession, job_id: str, version_number: int, changes_payload: str, status: str = "active") -> JobVersion:
+        """Log a new version update of a job listing."""
+        version = JobVersion(job_id=job_id, version_number=version_number, changes_payload=changes_payload, status=status)
+        session.add(version)
+        await session.flush()
+        return version
+
+    @staticmethod
+    async def save_resume(session: AsyncSession, filename: str, resume_text: str, skills_extracted: Optional[str] = None, embedding_id: Optional[str] = None, user_id: Optional[str] = None) -> Resume:
+        """Save a candidate's uploaded resume profile."""
+        resume = Resume(filename=filename, resume_text=resume_text, skills_extracted=skills_extracted, embedding_id=embedding_id, user_id=user_id)
+        session.add(resume)
+        await session.flush()
+        return resume
+
+    @staticmethod
+    async def get_resume_by_id(session: AsyncSession, resume_id: str) -> Optional[Resume]:
+        """Fetch an uploaded resume by ID."""
+        stmt = select(Resume).where(Resume.id == resume_id)
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def save_skill_relation(session: AsyncSession, skill_name: str, parent_skill: Optional[str] = None, relationship_type: str = "subset") -> SkillKnowledgeGraph:
+        """Add a skill relationship node to the skills taxonomy knowledge graph."""
+        relation = SkillKnowledgeGraph(skill_name=skill_name, parent_skill=parent_skill, relationship_type=relationship_type)
+        session.add(relation)
+        await session.flush()
+        return relation
+
+    @staticmethod
+    async def get_all_skills(session: AsyncSession) -> List[SkillKnowledgeGraph]:
+        """Fetch all registered skill relationship nodes."""
+        stmt = select(SkillKnowledgeGraph)
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
