@@ -1,13 +1,16 @@
 version: "3.8"
 
 services:
-  app:
+  api:
     build: .
-    container_name: job_discovery_app
+    container_name: jobintel_api
     ports:
       - "8000:8000"
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/job_discovery
+      - REDIS_URL=redis://redis:6379/0
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
       - AI_PROVIDER=mock
       - GEMINI_API_KEY=
       - HOST=0.0.0.0
@@ -19,10 +22,24 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
+      qdrant:
+        condition: service_started
+
+  frontend:
+    build: ./frontend
+    container_name: jobintel_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - api
 
   db:
     image: postgres:16-alpine
-    container_name: job_discovery_db
+    container_name: jobintel_db
     ports:
       - "5432:5432"
     environment:
@@ -37,5 +54,20 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: jobintel_redis
+    ports:
+      - "6379:6379"
+
+  qdrant:
+    image: qdrant/qdrant:v1.9.0
+    container_name: jobintel_qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
 volumes:
   postgres_data:
+  qdrant_data:
