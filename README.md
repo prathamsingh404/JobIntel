@@ -184,7 +184,7 @@ Open `http://localhost:8000` to access the live dashboard interface in Docker.
 
 This architecture is designed to scale to millions of jobs by adopting standard distributed data engineering patterns:
 - **Distributed Scraping**: Base collectors can be decoupled from the core application and scheduled as serverless functions or separate task modules.
-- **Message Queues**: Ingestion outputs can be pushed to **Apache Kafka** or **RabbitMQ** to decouple the collection layer from parsing, cleaning, and classification.
+- **Message Queues**: Ingestion outputs can be pushed to **Apache Kafka** or **RabbitMQ** to decouple the collection layer from parsing, cleaning, and classification...
 - **Distributed Job Worker**: The orchestrator in `pipeline_service.py` can be refactored into **Celery** tasks. Celery task workers can pull scraped URLs from a Redis broker, enabling massive horizontal scaling.
 - **Data Orchestrator**: The pipeline can be scheduled, managed, and monitored using **Apache Airflow** or **Prefect** DAGs.
 - **Vector Database**: Cleaned and approved descriptions can be embedded using Sentence-Transformers and saved to vector stores (e.g. **Chroma**, **Qdrant**, **pgvector**) to enable semantic resume matching and ATS recommendations.
