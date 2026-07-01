@@ -36,8 +36,11 @@ async def init_db() -> None:
     """Creates all database tables defined in SQLAlchemy models."""
     try:
         async with engine.begin() as conn:
-            # Import models inside to ensure they are registered on Base
-            from app.models.database import RawJob, CleanedJob, RejectedJob, AIClassifiedJob, RelevanceJob, PipelineLog
+            from app.models.database import (
+                User, Company, RawJob, CleanedJob, JobVersion,
+                RejectedJob, AIClassifiedJob, RelevanceJob, PipelineLog,
+                Resume, SkillKnowledgeGraph
+            )
             await conn.run_sync(Base.metadata.create_all)
         logger.info("Database tables initialized successfully.")
     except Exception as e:
