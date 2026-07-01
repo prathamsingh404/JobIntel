@@ -14,7 +14,7 @@ class GeminiClassifier(BaseClassifier):
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY is not configured in settings.")
         genai.configure(api_key=self.api_key)
-        self.model = genai.GenerativeModel("gemini-1.5-flash")
+        self.model = genai.GenerativeModel("gemini-2.5-flash")
 
     async def classify(self, title: str, description: str, company: str) -> AIServiceResult:
         logger.info(f"Submitting job classification to Gemini API: '{title}' at {company}")
