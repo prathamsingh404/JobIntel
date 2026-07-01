@@ -319,6 +319,12 @@
             from { transform: translateY(100px); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
         }
+
+        /* Filter Controls Styling */
+        .filter-bar input:focus, .filter-bar select:focus {
+            border-color: var(--accent-purple) !important;
+            box-shadow: 0 0 10px rgba(168, 85, 247, 0.2);
+        }
     </style>
 </head>
 <body>
@@ -389,8 +395,37 @@
 
         <!-- Recent Jobs Explorer Table -->
         <div class="panel table-panel">
-            <div class="panel-header">
+            <div class="panel-header" style="flex-wrap: wrap; gap: 1rem;">
                 <h2 class="panel-title">Real-Time Job Processing Feed</h2>
+                <!-- Filter Bar Controls -->
+                <div class="filter-bar" style="display: flex; gap: 0.8rem; flex-wrap: wrap; align-items: center;">
+                    <div class="input-wrapper" style="position: relative;">
+                        <input type="text" id="search-input" placeholder="Search title, company, description, skills..." 
+                               style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.6rem 1rem; color: #fff; font-family: 'Inter', sans-serif; font-size: 0.85rem; width: 260px; outline: none; transition: all 0.3s;"
+                               oninput="debouncedFetchJobs()">
+                    </div>
+                    <select id="role-filter" onchange="fetchJobs()" 
+                            style="background: #121426; border: 1px solid var(--border-color); border-radius: 8px; padding: 0.6rem 1rem; color: var(--text-main); font-family: 'Inter', sans-serif; font-size: 0.85rem; outline: none; cursor: pointer; border: 1px solid var(--border-color);">
+                        <option value="">All Canonical Roles</option>
+                        <option value="ml_engineer">ML Engineer</option>
+                        <option value="ai_engineer">AI Engineer</option>
+                        <option value="llm_engineer">LLM Engineer</option>
+                        <option value="data_scientist">Data Scientist</option>
+                        <option value="data_engineer">Data Engineer</option>
+                        <option value="devops_engineer">DevOps Engineer</option>
+                        <option value="backend_engineer">Backend Engineer</option>
+                        <option value="fullstack_engineer">Fullstack Engineer</option>
+                    </select>
+                    <select id="rank-filter" onchange="fetchJobs()" 
+                            style="background: #121426; border: 1px solid var(--border-color); border-radius: 8px; padding: 0.6rem 1rem; color: var(--text-main); font-family: 'Inter', sans-serif; font-size: 0.85rem; outline: none; cursor: pointer; border: 1px solid var(--border-color);">
+                        <option value="">All Relevance Ranks</option>
+                        <option value="excellent">Excellent</option>
+                        <option value="good">Good</option>
+                        <option value="moderate">Moderate</option>
+                        <option value="weak">Weak</option>
+                        <option value="reject">Reject</option>
+                    </select>
+                </div>
             </div>
             <div class="table-container">
                 <table>
@@ -455,15 +490,36 @@
             }
         }
 
+        let debounceTimer = null;
+        function debouncedFetchJobs() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                fetchJobs();
+            }, 300);
+        }
+
         async function fetchJobs() {
             try {
-                const response = await fetch("/api/jobs");
+                const searchVal = document.getElementById("search-input").value;
+                const roleVal = document.getElementById("role-filter").value;
+                const rankVal = document.getElementById("rank-filter").value;
+
+                let url = "/api/jobs?limit=50";
+                if (searchVal) url += `&search=${encodeURIComponent(searchVal)}`;
+                if (roleVal) url += `&role=${encodeURIComponent(roleVal)}`;
+                if (rankVal) url += `&rank=${encodeURIComponent(rankVal)}`;
+
+                const response = await fetch(url);
                 const jobs = await response.json();
                 
                 const tbody = document.getElementById("jobs-table-body");
-                if (jobs.length === 0) return;
-
                 tbody.innerHTML = "";
+                
+                if (jobs.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 3rem;">No jobs match your search filters.</td></tr>`;
+                    return;
+                }
+
                 jobs.forEach(job => {
                     const row = document.createElement("tr");
 
