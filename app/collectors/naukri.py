@@ -1,77 +1,114 @@
 import json
 from typing import List
+from bs4 import BeautifulSoup
 from app.collectors.base import BaseCollector
 from app.models.schemas import RawJobCreate
 from app.utils.logger import logger
 
+
 class NaukriCollector(BaseCollector):
-    """Naukri Connector Module (Configurable)."""
+    """Naukri Jobs Collector — Real HTML scraper with pagination."""
 
     def __init__(self):
         super().__init__(name="naukri")
-        self.keywords = self.config.get("naukri_keywords", ["data scientist", "nlp"])
+        self.keywords: List[str] = ["machine learning"]
+        self._page = 1
+
+    def set_page(self, page: int):
+        self._page = page
 
     async def collect(self) -> List[RawJobCreate]:
         raw_jobs = []
-        # Naukri usually requires session headers or custom cookies to crawl.
-        # We define a standard fetch structure, and fallback gracefully.
+
         for kw in self.keywords:
             kw_encoded = kw.replace(" ", "-")
-            url = f"https://www.naukri.com/{kw_encoded}-jobs"
+            # Naukri URL pattern with page support
+            url = f"https://www.naukri.com/{kw_encoded}-jobs-{self._page}"
+
             try:
-                # Custom headers for Naukri
                 headers = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                    "appid": "121",
-                    "systemid": "121"
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Accept": "text/html,application/xhtml+xml",
+                    "Accept-Language": "en-US,en;q=0.9",
                 }
-                response = await self.client.get(url, headers=headers, timeout=10.0)
+                response = await self.client.get(url, headers=headers, timeout=12.0)
                 response.raise_for_status()
-                # Parse response or JSON if available
-                # Usually it has a script tag with JSON containing job details.
-                # If scraping block occurs, exception is caught and fallback is triggered.
-                logger.info(f"Fetched Naukri career site for keyword: {kw}")
+
+                soup = BeautifulSoup(response.text, "html.parser")
+
+                # Try to extract JSON-LD structured data (most reliable)
+                script_tags = soup.find_all("script", type="application/ld+json")
+                for script in script_tags:
+                    try:
+                        ld_data = json.loads(script.string)
+                        # Naukri embeds JobPosting schema.org objects
+                        if isinstance(ld_data, dict) and ld_data.get("@type") == "JobPosting":
+                            raw_jobs.append(self._parse_jsonld_job(ld_data, kw))
+                        elif isinstance(ld_data, list):
+                            for item in ld_data:
+                                if isinstance(item, dict) and item.get("@type") == "JobPosting":
+                                    raw_jobs.append(self._parse_jsonld_job(item, kw))
+                    except (json.JSONDecodeError, TypeError):
+                        continue
+
+                # Fallback: try to parse job cards from HTML structure
+                if not raw_jobs:
+                    job_cards = soup.find_all("article", class_="jobTuple") or soup.find_all("div", class_="srp-jobtuple-wrapper")
+                    for card in job_cards:
+                        title_elem = card.find("a", class_="title")
+                        company_elem = card.find("a", class_="subTitle")
+                        link = title_elem.get("href", "") if title_elem else ""
+
+                        if not title_elem or not link:
+                            continue
+
+                        title = title_elem.text.strip()
+                        company = company_elem.text.strip() if company_elem else "Unknown"
+                        desc_elem = card.find("div", class_="job-description")
+                        description = desc_elem.text.strip() if desc_elem else title
+
+                        raw_jobs.append(
+                            RawJobCreate(
+                                source=self.name,
+                                source_url=link,
+                                company=company,
+                                title=title,
+                                description=description,
+                                raw_json=json.dumps({"keyword": kw, "page": self._page}),
+                                raw_html=description,
+                            )
+                        )
+
+                logger.info(f"[Naukri Agent] Fetched {len(raw_jobs)} jobs for '{kw}' (page {self._page})")
+
             except Exception as e:
-                logger.warning(
-                    f"Naukri scraping restricted by rate-limits or dynamic blocks ({e}). Launching fallback mock jobs."
-                )
-                raw_jobs.extend(self._get_mock_jobs(kw))
-                
+                logger.warning(f"[Naukri Agent] Scraping failed for '{kw}': {e}")
+                continue
+
+        logger.info(f"[Naukri Agent] Batch {self._page} complete: {len(raw_jobs)} jobs found")
         return raw_jobs
 
-    def _get_mock_jobs(self, keyword: str) -> List[RawJobCreate]:
-        """Provides realistic mock data for local testing and dry-runs."""
-        return [
-            RawJobCreate(
-                source=self.name,
-                source_url="https://www.naukri.com/job-listings-mlops-engineer-bengaluru-mock-nk-601",
-                company="Flipkart",
-                title="MLOps & Deep Learning Architect",
-                description="""
-                <h1>MLOps & Deep Learning Architect</h1>
-                <p>Flipkart is seeking an experienced MLOps Architect to lead our ML platform teams in Bengaluru. You will work on scaling GPU training workloads, LLMs, and Kubernetes clusters.</p>
-                <h3>Requirements:</h3>
-                <ul>
-                    <li>5+ years of software development experience with Python.</li>
-                    <li>Experience with PyTorch, CUDA, Docker, Kubernetes, and Ray.</li>
-                    <li>Experience designing large-scale ML infrastructure.</li>
-                </ul>
-                <h3>Details:</h3>
-                <p>Location: Bengaluru, India. Salary: INR 35-50 LPA.</p>
-                """,
-                raw_json=json.dumps({"id": "mock-nk-601", "keyword": keyword}),
-                raw_html="<h1>MLOps Architect</h1><p>Description text...</p>"
-            ),
-            RawJobCreate(
-                source=self.name,
-                source_url="https://www.naukri.com/job-listings-finance-manager-mumbai-mock-nk-602",
-                company="Swiggy",
-                title="Corporate Finance Manager",
-                description="""
-                <p>Swiggy is seeking a Finance Manager in Mumbai to oversee billing operations, prepare ledger files, and run financial audits.</p>
-                <p>Skills: Finance, Excel, Accounting, CA or MBA Finance.</p>
-                """,
-                raw_json=json.dumps({"id": "mock-nk-602"}),
-                raw_html="<p>Finance details...</p>"
-            )
-        ]
+    def _parse_jsonld_job(self, ld_data: dict, keyword: str) -> RawJobCreate:
+        """Parse a schema.org JobPosting JSON-LD object into a RawJobCreate."""
+        title = ld_data.get("title", "Untitled")
+        company_data = ld_data.get("hiringOrganization", {})
+        company = company_data.get("name", "Unknown") if isinstance(company_data, dict) else "Unknown"
+        description = ld_data.get("description", "")
+        url = ld_data.get("url", f"https://www.naukri.com/{keyword.replace(' ', '-')}-jobs")
+
+        location_data = ld_data.get("jobLocation", {})
+        if isinstance(location_data, dict):
+            address = location_data.get("address", {})
+            location = address.get("addressLocality", "India") if isinstance(address, dict) else "India"
+        else:
+            location = "India"
+
+        return RawJobCreate(
+            source=self.name,
+            source_url=url,
+            company=company,
+            title=title,
+            description=description,
+            raw_json=json.dumps(ld_data, default=str),
+            raw_html=description,
+        )
