@@ -23,9 +23,50 @@ class BaseCollector(abc.ABC):
         )
 
     @abc.abstractmethod
-    async def collect(self) -> List[RawJobCreate]:
-        """Fetch jobs from source, parse and return list of RawJobCreate schemas."""
+    async def collect(self) -> List[Dict[str, Any]]:
+        """Fetch raw listings or items from the source (returns raw dicts/html/json)."""
         pass
+
+    def parse(self, raw_record: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert a raw HTML/JSON response record into a structured job dictionary."""
+        return raw_record
+
+    def validate(self, parsed_data: Dict[str, Any]) -> tuple[bool, Optional[str]]:
+        """Validate required fields of the parsed job object. Returns (is_valid, reason)."""
+        title = parsed_data.get("title")
+        company = parsed_data.get("company")
+        description = parsed_data.get("description")
+        source_url = parsed_data.get("source_url")
+
+        if not title:
+            return False, "Missing title"
+        if not company:
+            return False, "Missing company"
+        if not description or not description.strip():
+            return False, "Empty description"
+        if not source_url:
+            return False, "Missing source URL"
+        return True, None
+
+    def normalize(self, parsed_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize job titles, locations, and other text fields into standard form."""
+        normalized = parsed_data.copy()
+        if "title" in normalized and normalized["title"]:
+            normalized["title"] = " ".join(normalized["title"].split())
+        if "company" in normalized and normalized["company"]:
+            normalized["company"] = " ".join(normalized["company"].split())
+        
+        location = normalized.get("location", "Remote")
+        if not location or "remote" in location.lower():
+            normalized["location"] = "Remote"
+        else:
+            normalized["location"] = location.strip()
+            
+        return normalized
+
+    async def publish(self, normalized_data: Dict[str, Any]) -> None:
+        """Publishes the job record to a queue or log broker."""
+        logger.debug(f"Publishing parsed job record: {normalized_data.get('title')} at {normalized_data.get('company')}")
 
     async def close(self) -> None:
         """Close connection pools."""
