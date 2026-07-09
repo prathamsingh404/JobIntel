@@ -141,7 +141,7 @@ uvicorn app.main:app --reload
 
 ---
 
-## 📊 Example Output
+##  Example Output
 
 ```json
 {
