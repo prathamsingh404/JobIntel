@@ -4,7 +4,7 @@
 
 ---
 
-## ✨ What is JobIntel?
+##  What is JobIntel?
 
 JobIntel is a data pipeline designed to automate the process of collecting and processing job postings.
 
@@ -14,7 +14,7 @@ The goal is to build a scalable system that works with real-world job data rathe
 
 ---
 
-## 🚀 Features
+##  Features
 
 - Collect jobs from multiple sources
 - Clean and standardize raw job data
@@ -29,7 +29,7 @@ The goal is to build a scalable system that works with real-world job data rathe
 
 ---
 
-## 🏗️ Pipeline
+##  Pipeline
 
 ```
 
